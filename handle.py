@@ -89,11 +89,12 @@ def verify_md5_sign(contents1,contents2):
     print 'cert1: '+ md5_1
     print 'cert2: '+ md5_2
     """
+    """
     md5_1 = hashlib.md5(contents1[4:260]).hexdigest()
     md5_2 = hashlib.md5(contents2[4:260]).hexdigest()
     print 'cert1: '+ md5_1
     print 'cert2: '+ md5_2
-    
+    """
     print '\nSHA values:'
     sha_1 = hashlib.sha1(contents1[4:549]).hexdigest()
     sha_2 = hashlib.sha1(contents2[4:549]).hexdigest()
@@ -126,16 +127,16 @@ def gen_sign(contents1,contents2):
 
 def gen_rsakeys(contents1,contents2):
     #test with fake keys for now
-    md5 = hashlib.md5(contents1[4:260]).hexdigest()
-    print md5
-    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5))
-    """
-    with open ('./temp/tbs1','rb') as tbs:
-        with open ('./temp/testin','wb') as testin:
-            contents=tbs.read()
-            testin.write(contents[4:260])
-            print hashlib.md5(
-    os.system('./fastcoll/build/fastcoll -p ./temp/testin -o ./temp/coll1 ./temp/coll2')
+    #md5 = hashlib.md5(contents1[4:260]).hexdigest()
+    #print md5
+    #os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5))
+
+    #wi5555555555555555th open ('./temp/tbs1','rb') as tbs:
+    with open ('./temp/testin','wb') as testin:
+    #        contents=tbs.read()
+        testin.write(contents1[4:260])
+            
+    os.system('./fastcoll/build/fastcoll -p ./temp/testin -o ./temp/collout1 ./temp/collout2')
     """
     with open('./temp/coll1','rb') as coll1:
         coll1_contents=coll1.read()
@@ -145,14 +146,22 @@ def gen_rsakeys(contents1,contents2):
     temp_contents2=contents1[4:260]+coll2_contents
     md5 = hashlib.md5(temp_contents).hexdigest()
     print md5
-    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1_1 ./temp/coll1_2'% (md5))
-    with open('./temp/coll1_1','rb') as coll1_1:
+    """
+    os.system('./fastcoll/build/fastcoll -p ./temp/collout1 -o ./temp/collout1_1 ./temp/collout1_2')
+    
+    with open('./temp/collout1_1','rb') as coll1_1:
         coll1_1_contents=coll1_1.read()
-    with open('./temp/coll1_2','rb') as coll1_2:
+    with open('./temp/collout1_2','rb') as coll1_2:
         coll1_2_contents=coll1_2.read()
-
-    contents1=contents1[:260]+temp_contents+coll1_1_contents+contents1[516:]
-    contents2=contents2[:260]+temp_contents2+coll1_2_contents+contents2[516:]
+    
+    contents1=contents1[:4]+coll1_1_contents+contents1[516:]
+    contents2=contents2[:4]+coll1_2_contents+contents2[516:]
+    """
+    with open('./temp/tbs_coll1','wb') as colla:
+        colla.write(contents1[4:549])
+    with open('./temp/tbs_coll2','wb') as collb:
+        collb.write(contents2[4:549])
+    """
     genfile(contents1,contents2)
 #    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5_1))
     return contents1,contents2
