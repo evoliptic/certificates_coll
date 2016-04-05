@@ -5,6 +5,7 @@ import sys
 from sys import stdin
 import hashlib
 import os
+import argparse
 
 def genfile(base_contents1,base_contents2):
     with open('./gen_certs/certificate1.cer','wb') as outfile1:
@@ -15,9 +16,9 @@ def genfile(base_contents1,base_contents2):
 
 
 
-def modify_contents(file_contents1, file_contents2, start, end, name):
+def modify_contents(file_contents, start, end, name):
     base_len=end-start
-    print ('----------\nyou chose to modify {}, you must enter a length of {}\n new string:'.format(name,base_len))
+    print ('----------\nyou chose to modify {},with actual value"{}" you must enter a length of {}\n new string:'.format(name,file_contents[start:end],base_len))
 
     data = stdin.readline()
     data=data.strip()
@@ -26,17 +27,16 @@ def modify_contents(file_contents1, file_contents2, start, end, name):
     else :
         print data
         print len(data)
-        file_contents1=file_contents1[0:start]+data+file_contents1[end:]
-        file_contents2=file_contents2[0:start]+data+file_contents2[end:]
+        file_contents=file_contents[0:start]+data+file_contents[end:]
 
-    return file_contents1,file_contents2
-
+    return file_contents
 
 
 
-def modify_parameters_welcome(file_contents1,file_contents2):
+
+def modify_parameters_menu(file_contents):
     menu = {}
-    print('-------------------------\nwithin options 1,2,3 and 4 of menu, we ask that total length of new string is equal the previous one. within option 5, be aware that this option is hard(you need to generate correct asn structure) and that total length must be divided by 64.')
+    print('[within options 1,2,3 and 4 of menu, we ask that total length of new value for the chosen parameter is equal to the length of the previous one (in order to not break whole structure). within option 5, you must provide a whole new asn1 starting part of the certificate(260 bytes length). If you don\'t want to modify any parameter, enter option 6]\n')
     menu['1']="modify common name"
     menu['2']="modify country"
     menu['3']="modify location"
@@ -44,6 +44,8 @@ def modify_parameters_welcome(file_contents1,file_contents2):
     menu['5']="modify total head of certificate"
     menu['6']="Exit parameters modifications"
 
+    #!!!!TO DO!!!!!!
+    #need to provide a way to calculate numbers automatically here to adjust to all templates
     while True:
         options=menu.keys()
         options.sort()
@@ -53,27 +55,26 @@ def modify_parameters_welcome(file_contents1,file_contents2):
         print('\n')
         if selection =='1':
             print "you selected option1"
-            file_contents1,file_contents2=modify_contents(file_contents1,file_contents2,142,156,'common name')
+            file_contents=modify_contents(file_contents,142,156,'common name')
         elif selection == '2':
             print "you selected option2"
-            file_contents1,file_contents2=modify_contents(file_contents1,file_contents2,225,227,'country')
+            file_contents=modify_contents(file_contents,225,227,'country')
         elif selection == '3':
             print "you selected option3"
-            file_contents1,file_contents2=modify_contents(file_contents1,file_contents2,205,214,'location')
+            file_contents=modify_contents(file_contents,205,214,'location')
         elif selection == '4':
             print "you selected option4"
-            file_contents1,file_contents2=modify_contents(file_contents1,file_contents2,167,194,'comment')
+            file_contents=modify_contents(file_contents,167,194,'comment')
         elif selection == '5':
             print "you selected option5"
-            file_contents1,file_contents2=modify_contents(file_contents1,file_contents2,0,256,'all')
+            file_contents=modify_contents(file_contents,0,260,'all')
         elif selection == '6':
             break
         else:
             print "Unknown Option Selected!"
         print '\n--------\nnew option:'
-
-    print '\nGenerating new cer files... [OK]\n\n'
-    return file_contents1,file_contents2
+    print '\nGenerating new cer template... [OK]\n\n'
+    return file_contents
 
 
 def verify_md5_sign(contents1,contents2):
@@ -82,128 +83,110 @@ def verify_md5_sign(contents1,contents2):
     md5_2 = hashlib.md5(contents2[4:549]).hexdigest()
     print 'cert1: '+ md5_1
     print 'cert2: '+ md5_2
-    #verifying
-    """
-    md5_1 = hashlib.md5(contents1[4:388]).hexdigest()
-    md5_2 = hashlib.md5(contents2[4:388]).hexdigest()
-    print 'cert1: '+ md5_1
-    print 'cert2: '+ md5_2
-    """
-    """
-    md5_1 = hashlib.md5(contents1[4:260]).hexdigest()
-    md5_2 = hashlib.md5(contents2[4:260]).hexdigest()
-    print 'cert1: '+ md5_1
-    print 'cert2: '+ md5_2
-    """
     print '\nSHA values:'
     sha_1 = hashlib.sha1(contents1[4:549]).hexdigest()
     sha_2 = hashlib.sha1(contents2[4:549]).hexdigest()
     print 'cert1: '+ sha_1
     print 'cert2: '+ sha_2
     if md5_1 == md5_2 and sha_1 != sha_2 :
-        print '\nWell! Collision seems effective\n------\n'
+        print '\nWell! Collision seems effective!\ncheck your files in gen_certs/\n-------'
     else:
-        print '\nBad collision :(\n-------\n'
+        print '\nBad collision :(\nplease consider rerunning program\n--------'
+        
 
 
-def gen_sign(contents1,contents2):
+def gen_sign(contents1,contents2):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
         temp2.write(contents2[4:549])
-        
-    os.system('openssl dgst -md5 -sign ./CA_cert/CA.key -out ./temp/sig1< ./temp/tbs1')
-    os.system('openssl dgst -md5 -sign ./CA_cert/CA.key -out ./temp/sig2< ./temp/tbs2')
-    
+
+    print 'Please enter path to CA rsa key:'
+    data = stdin.readline().strip()
+
+    #todo: might consider replacing quite deprecated os.system
+    os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
+    os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
+
     with open('./temp/sig1','rb') as sig1:
         sig1_contents=sig1.read()
     with open('./temp/sig2','rb') as sig2:
         sig2_contents=sig2.read()
 
     contents1=contents1[:569]+sig1_contents
-    contents2=contents2[:569]+sig1_contents
-    genfile(contents1,contents2)
+    contents2=contents2[:569]+sig2_contents
     return contents1,contents2
 
-def gen_rsakeys(contents1,contents2):
+
+def gen_rsakeys(contents):
     #test with fake keys for now
-    #md5 = hashlib.md5(contents1[4:260]).hexdigest()
-    #print md5
-    #os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5))
+    #
+    #need to write extern file to generate good based IV for fastcoll
+    #TODO: why the fuck?
+    #
+    #TODO 2: implement the good rsa thing
 
-    #wi5555555555555555th open ('./temp/tbs1','rb') as tbs:
-    with open ('./temp/testin','wb') as testin:
-    #        contents=tbs.read()
-        testin.write(contents1[4:260])
-            
-    os.system('./fastcoll/build/fastcoll -p ./temp/testin -o ./temp/collout1 ./temp/collout2')
-    """
-    with open('./temp/coll1','rb') as coll1:
-        coll1_contents=coll1.read()
-    with open('./temp/coll2','rb') as coll2:
-        coll2_contents=coll2.read()
-    temp_contents=contents1[4:260]+coll1_contents    
-    temp_contents2=contents1[4:260]+coll2_contents
-    md5 = hashlib.md5(temp_contents).hexdigest()
-    print md5
-    """
-    os.system('./fastcoll/build/fastcoll -p ./temp/collout1 -o ./temp/collout1_1 ./temp/collout1_2')
-    
-    with open('./temp/collout1_1','rb') as coll1_1:
-        coll1_1_contents=coll1_1.read()
-    with open('./temp/collout1_2','rb') as coll1_2:
-        coll1_2_contents=coll1_2.read()
-    
-    contents1=contents1[:4]+coll1_1_contents+contents1[516:]
-    contents2=contents2[:4]+coll1_2_contents+contents2[516:]
-    """
-    with open('./temp/tbs_coll1','wb') as colla:
-        colla.write(contents1[4:549])
-    with open('./temp/tbs_coll2','wb') as collb:
-        collb.write(contents2[4:549])
-    """
-    genfile(contents1,contents2)
-#    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5_1))
-    return contents1,contents2
-
-
-        
-def welcome():
-
-    menu = {}
-    menu['1']="modificates base cer files with own parameters"
-    menu['2']="verify md5sum of to be signed part"
-    menu['3']="generate compliant rsa keys (not implemented yet)"
-    menu['4']="generate certificates with sign"
-    menu['5']="Exit"
-    
-    with open('./base_certs/MD5Collision.certificate1.cer','rb') as infile1:
-        base_contents1=infile1.read()
-        
-    with open('./base_certs/MD5Collision.certificate2.cer','rb') as infile2:
-        base_contents2=infile2.read()       
-        
+    print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
     while True:
-        options=menu.keys()
-        options.sort()
-        for entry in options:
-            print entry, menu[entry]
         selection=raw_input("Please Select:")
         print('\n')
-        if selection =='1':
-            base_contents1,base_contents2 = modify_parameters_welcome(base_contents1,base_contents2)
-            genfile(base_contents1,base_contents2)
-        elif selection == '2':
-            verify_md5_sign(base_contents1,base_contents2)            
-        elif selection == '3':
-            base_contents1,base_contents2=gen_rsakeys(base_contents1,base_contents2)
-        elif selection == '4':
-            base_contents1,base_contents2=gen_sign(base_contents1,base_contents2)
-        elif selection == '5':
-            break
-        else:
-            print "Unknown Option Selected!"
-        print 'choose an option :'
 
-welcome()
-                                
+        if selection =='1':
+            with open('./base_certs/rsa_template.cer','rb') as f:
+                with open('./temp/temp1','wb') as f2:
+                    contentsa=contents[4:]+f.read()
+                    f2.write(contentsa)
+            os.system('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2')
+            print '\n\nGenerating more complete certificates....[OK]'
+            with open('./base_certs/end_template.cer','rb') as f1:
+                with open('./temp/collout1','rb') as f2:
+                    contents1=contents[:4]+f2.read()+f1.read()
+            with open('./base_certs/end_template.cer','rb') as f1:
+                with open('./temp/collout2','rb') as f3:
+                    contents2=contents[:4]+f3.read()+f1.read()
+            break      
+
+        elif selection == '2':
+            #todo2
+            break
+
+        else:
+            print 'unknown option selected'
+
+    return contents1,contents2
+        
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', metavar='in-file', type=argparse.FileType('rb'))
+
+    try:
+        results = parser.parse_args()
+    except IOError, msg:
+        parser.error(str(msg))
+
+    if results.i is not None :
+        base_contents=results.i.read()
+    else:
+        with open('./base_certs/start_template.cer','rb') as infile1:
+            base_contents=infile1.read()
+
+    print 'Welcome to certificates collider basics generator\n-------------------------------------------------\n'
+    print 'this program will help you build collinding x509 certificates based on MD5 signature. To do so, it will generate 2 certificates equal apart from a colliding rsa public key.\n'
+    print 'if you used an input file on command line, you have already the start of a cer file (asn1 cimpliant) to work on. If not, you have been given an arbitrary starting cer file.\n'
+
+    print 'first you will changes the parameters of the client in the certificates to be generated :\n----------------------------------------------------------------------------------------'
+    base_contents = modify_parameters_menu(base_contents)
+
+    print 'you will now generate rsa moduli for the certificates'
+    base_contents1,base_contents2=gen_rsakeys(base_contents)
+
+    print 'you will now generate the signature parts of the certificates'
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2)
+
+    genfile(base_contents1,base_contents2)
+    verify_md5_sign(base_contents1,base_contents2)            
+    
+main()                                
