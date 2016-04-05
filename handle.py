@@ -4,6 +4,7 @@ import binascii
 import sys
 from sys import stdin
 import hashlib
+import os
 
 def genfile(base_contents1,base_contents2):
     with open('./gen_certs/certificate1.cer','wb') as outfile1:
@@ -23,6 +24,8 @@ def modify_contents(file_contents1, file_contents2, start, end, name):
     if len(data) != base_len :
         print 'wrong length entered, quitting modification'
     else :
+        print data
+        print len(data)
         file_contents1=file_contents1[0:start]+data+file_contents1[end:]
         file_contents2=file_contents2[0:start]+data+file_contents2[end:]
 
@@ -74,18 +77,23 @@ def modify_parameters_welcome(file_contents1,file_contents2):
 
 
 def verify_md5_sign(contents1,contents2):
-    """
-    for i in xrange(5,825) :
-        md5_1 = hashlib.md5(contents1[4:i]).hexdigest()
-        if md5_1 == "5fa5531b3fba6973fef68ba52d32e617" :
-            print ('found at length {}'.format(i))
-    """
     print 'MD5 values:'
-    md5_1 = hashlib.md5(contents1[4:580]).hexdigest()
-    md5_2 = hashlib.md5(contents2[4:580]).hexdigest()
-    print contents1[256:]
+    md5_1 = hashlib.md5(contents1[4:549]).hexdigest()
+    md5_2 = hashlib.md5(contents2[4:549]).hexdigest()
     print 'cert1: '+ md5_1
     print 'cert2: '+ md5_2
+    #verifying
+    """
+    md5_1 = hashlib.md5(contents1[4:388]).hexdigest()
+    md5_2 = hashlib.md5(contents2[4:388]).hexdigest()
+    print 'cert1: '+ md5_1
+    print 'cert2: '+ md5_2
+    """
+    md5_1 = hashlib.md5(contents1[4:260]).hexdigest()
+    md5_2 = hashlib.md5(contents2[4:260]).hexdigest()
+    print 'cert1: '+ md5_1
+    print 'cert2: '+ md5_2
+    
     print '\nSHA values:'
     sha_1 = hashlib.sha1(contents1[4:549]).hexdigest()
     sha_2 = hashlib.sha1(contents2[4:549]).hexdigest()
@@ -98,10 +106,58 @@ def verify_md5_sign(contents1,contents2):
 
 
 def gen_sign(contents1,contents2):
-    #os.exec(openssl dgst....)
+    with open('./temp/tbs1','wb') as temp1:
+        temp1.write(contents1[4:549])
+    with open('./temp/tbs2','wb') as temp2:
+        temp2.write(contents2[4:549])
+        
+    os.system('openssl dgst -md5 -sign ./CA_cert/CA.key -out ./temp/sig1< ./temp/tbs1')
+    os.system('openssl dgst -md5 -sign ./CA_cert/CA.key -out ./temp/sig2< ./temp/tbs2')
+    
+    with open('./temp/sig1','rb') as sig1:
+        sig1_contents=sig1.read()
+    with open('./temp/sig2','rb') as sig2:
+        sig2_contents=sig2.read()
+
+    contents1=contents1[:569]+sig1_contents
+    contents2=contents2[:569]+sig1_contents
+    genfile(contents1,contents2)
     return contents1,contents2
 
-        
+def gen_rsakeys(contents1,contents2):
+    #test with fake keys for now
+    md5 = hashlib.md5(contents1[4:260]).hexdigest()
+    print md5
+    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5))
+    """
+    with open ('./temp/tbs1','rb') as tbs:
+        with open ('./temp/testin','wb') as testin:
+            contents=tbs.read()
+            testin.write(contents[4:260])
+            print hashlib.md5(
+    os.system('./fastcoll/build/fastcoll -p ./temp/testin -o ./temp/coll1 ./temp/coll2')
+    """
+    with open('./temp/coll1','rb') as coll1:
+        coll1_contents=coll1.read()
+    with open('./temp/coll2','rb') as coll2:
+        coll2_contents=coll2.read()
+    temp_contents=contents1[4:260]+coll1_contents    
+    temp_contents2=contents1[4:260]+coll2_contents
+    md5 = hashlib.md5(temp_contents).hexdigest()
+    print md5
+    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1_1 ./temp/coll1_2'% (md5))
+    with open('./temp/coll1_1','rb') as coll1_1:
+        coll1_1_contents=coll1_1.read()
+    with open('./temp/coll1_2','rb') as coll1_2:
+        coll1_2_contents=coll1_2.read()
+
+    contents1=contents1[:260]+temp_contents+coll1_1_contents+contents1[516:]
+    contents2=contents2[:260]+temp_contents2+coll1_2_contents+contents2[516:]
+    genfile(contents1,contents2)
+#    os.system('./fastcoll/build/fastcoll -i %s -o ./temp/coll1 ./temp/coll2'% (md5_1))
+    return contents1,contents2
+
+
         
 def welcome():
 
@@ -111,7 +167,7 @@ def welcome():
     menu['3']="generate compliant rsa keys (not implemented yet)"
     menu['4']="generate certificates with sign"
     menu['5']="Exit"
-
+    
     with open('./base_certs/MD5Collision.certificate1.cer','rb') as infile1:
         base_contents1=infile1.read()
         
@@ -131,9 +187,9 @@ def welcome():
         elif selection == '2':
             verify_md5_sign(base_contents1,base_contents2)            
         elif selection == '3':
-            print "find"
+            base_contents1,base_contents2=gen_rsakeys(base_contents1,base_contents2)
         elif selection == '4':
-            break
+            base_contents1,base_contents2=gen_sign(base_contents1,base_contents2)
         elif selection == '5':
             break
         else:
