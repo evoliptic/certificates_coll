@@ -93,16 +93,34 @@ def verify_md5_sign(contents1,contents2):
         print '\nWell! Collision seems effective!\ncheck your files in gen_certs/\n-------'
     else:
         print '\nBad collision :(\nplease consider rerunning program\n--------'
+
+def gen_CA_sign(contents,data):    
+    with open('./temp/CA_tbs','wb') as temp:
+        temp.write(contents1[4:520])
+    
+    #todo: might consider replacing quite deprecated os.system
+    os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig< ./temp/CA_tbs'.format(data))
+
+    with open('./temp/CA_sig','rb') as sig:
+        sig_contents=sig.read()
+ 
+    contents1=contents[:539]+sig_contents
+    return contents1
+
+
         
 def gen_CA_files(data):
     os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
     with open('./temp/temp_CAkey.cer','rb') as f1:
-        with open('./gen_certs/CA.cer','wb') as f2:
-            with open('./CA_cert/CA.cer','rb') as f3:
-                contents3=f3.read()
-                contents1=f1.read()
-                contents2=contents3[:224]+contents1[32:288]+contents3[480:]
-                f2.write(contents2)
+        with open('./CA_cert/CA.cer','rb') as f3:
+            contents3=f3.read()
+            contents1=f1.read()
+            contents2=contents3[:224]+contents1[32:288]+contents3[480:]
+
+    contents2=gen_CA_sign(contents2,data)            
+    with open('./gen_certs/CA.cer','wb') as f2:
+        f2.write(contents2)
+
     os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
     print 'Generating CA certificates.....[OK]'
         
@@ -171,10 +189,18 @@ def gen_rsakeys(contents):
         
 
 
+def verify_certificates():
+    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate1.pem')
+    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate2.pem')
+
+
+
+
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', metavar='in-file', type=argparse.FileType('rb'))
+    parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
+    parser.add_argument('-v', help='validate certificates', action='store_true')
 
     try:
         results = parser.parse_args()
@@ -201,6 +227,8 @@ def main():
     base_contents1,base_contents2=gen_sign(base_contents1,base_contents2)
 
     genfile(base_contents1,base_contents2)
-    verify_md5_sign(base_contents1,base_contents2)            
+    verify_md5_sign(base_contents1,base_contents2)
+    if results.v is not None:
+        verify_certificates()
     
 main()                                
