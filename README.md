@@ -55,9 +55,10 @@ blahblahblah
 
 TODO list:
 ----------
-- implement the real rsa generation
-- verify the ca certificate generation
-- implement all options: output name, ca-key
+- finish readme
+- implement the real rsa generation ------> ok but have to check for ending
+- verify the ca certificate generation 
+- implement all options: output name, ca-key (en cours)
 - go a bit more user friendly
 - review possibly deprecated methods
 
