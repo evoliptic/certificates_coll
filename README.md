@@ -55,7 +55,7 @@ TODO list:
 ----------
 - implement the real rsa generation
 - verify the ca certificate generation
-- implement all options: output name, cleaning,ca-key
+- implement all options: output name, ca-key
 - go a bit more user friendly
 
 

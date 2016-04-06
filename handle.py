@@ -7,6 +7,8 @@ import hashlib
 import os
 import argparse
 import base64
+import random
+from gmpy2 import *
 
 def genfile(base_contents1,base_contents2):
     with open('./gen_certs/certificate1.cer','wb') as outfile1:
@@ -150,6 +152,24 @@ def gen_sign(contents1,contents2):
     return contents1,contents2
 
 
+def random_prime(bitsize):
+    x = random.randint(0, 1 << (bitsize - 1))
+    return next_prime(x)
+
+def random_prime_coprime(bitsize, n):
+        x = random_prime(bitsize)
+        if gcd(x - 1, n) == 1:
+            return x
+        else:
+            return random_prime_coprime(bitsize, n)
+                
+
+def crt(a1,a2,n1,n2):
+    N=n1*n2
+    inv1= invert(n2,n1)
+    inv2= invert(n1,n2)
+    return -( a1*inv1*n2 + a2*inv2*n1)%N
+        
 def gen_rsakeys(contents):
     #test with fake keys for now
     #
@@ -179,7 +199,48 @@ def gen_rsakeys(contents):
             break      
 
         elif selection == '2':
-            #todo2
+            print 'generating rsa key (may take a while) :'
+            with open('./temp/temp2','wb') as f:
+                f.write(contents[4:])
+            os.system('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1')
+            with open('./temp/collout1_1','rb') as f:
+                contentsb=f.read()
+            with open('./temp/collout2_1','rb') as f:
+                contentsc=f.read()
+
+            b1_1=contentsb[256:384]
+            b2_1=contentsc[256:384]
+            b1=int(binascii.hexlify(b1_1),16)
+            b2=int(binascii.hexlify(b2_1),16)
+            #print type(b1)
+            #print b1
+            found=0
+            indicator='generating rsa key (may take a while) :.'
+            while True:
+                p1=random_prime_coprime(512,65537)
+                p2=random_prime_coprime(512,65537)
+                if p1 == p2:
+                    continue
+                p3=p1*p2
+                b0=crt(b1*2**1024,b2*2**1024,p1,p2)
+                k=0
+                while True:
+                   b=b0+p3*k
+                   if b >= 2**1024:
+                       break
+                   q1=(b1*2**1024+b)/p1
+                   q2=(b2*2**1024+b)/p2
+                   if is_prime(q1) and is_prime(q2) and gcd(q1-1,65537) == 1 and gcd(q2-1,65537) == 1 :
+                       found = 1
+                       print 'found!!!!!'
+                       break
+                   k+=1
+                   
+                if found == 1 :
+                    break
+                sys.stdout.write("\033[F")
+                print indicator
+                indicator+='.'
             break
 
         else:
@@ -193,7 +254,8 @@ def verify_certificates():
     os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate1.pem')
     os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate2.pem')
 
-
+def clean_temp():
+    os.system('rm temp/*')
 
 
 def main():
@@ -201,6 +263,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
+    parser.add_argument('-c', help='clean temporary files after execution', action='store_true')
 
     try:
         results = parser.parse_args()
@@ -230,5 +293,8 @@ def main():
     verify_md5_sign(base_contents1,base_contents2)
     if results.v is not None:
         verify_certificates()
+
+    if results.c is not None:
+        clean_temp()    
     
 main()                                
