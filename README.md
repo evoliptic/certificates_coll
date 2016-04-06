@@ -9,7 +9,7 @@ following instructions are for Linux users on a debian based distro. Please adju
   -------------
 	-fascoll program : boost libraries, cmake > 2.6
 	-openssl  (should work with version > 0.9)
-	-main program : python > 2.6 (should be installed by default)
+	-main program : python > 2.6 (should be installed by default), some non default installed python modules: gmpy2
 
   step by step:
   -------------
@@ -22,7 +22,9 @@ following instructions are for Linux users on a debian based distro. Please adju
 	if openssl isn ot installed
 	$ apt-get install openssl
 
-
+	if gmpy is not installed
+	$ apt-get install python-gmpy2
+	
 	$ cd {YOUR_PWD}
 	$ git clone https://github.com/evoliptic/certificates_coll.git
 	$ cd certificates_coll/fastcoll
@@ -57,6 +59,7 @@ TODO list:
 - verify the ca certificate generation
 - implement all options: output name, ca-key
 - go a bit more user friendly
+- review possibly deprecated methods
 
 
 

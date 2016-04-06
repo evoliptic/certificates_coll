@@ -9,6 +9,7 @@ import argparse
 import base64
 import random
 from gmpy2 import *
+import timeit
 
 def genfile(base_contents1,base_contents2):
     with open('./gen_certs/certificate1.cer','wb') as outfile1:
@@ -100,7 +101,6 @@ def gen_CA_sign(contents,data):
     with open('./temp/CA_tbs','wb') as temp:
         temp.write(contents1[4:520])
     
-    #todo: might consider replacing quite deprecated os.system
     os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig< ./temp/CA_tbs'.format(data))
 
     with open('./temp/CA_sig','rb') as sig:
@@ -138,7 +138,6 @@ def gen_sign(contents1,contents2):
 
     gen_CA_files(data)
     
-    #todo: might consider replacing quite deprecated os.system
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
 
@@ -171,12 +170,8 @@ def crt(a1,a2,n1,n2):
     return -( a1*inv1*n2 + a2*inv2*n1)%N
         
 def gen_rsakeys(contents):
-    #test with fake keys for now
-    #
     #need to write extern file to generate good based IV for fastcoll
     #TODO: why the fuck?
-    #
-    #TODO 2: implement the good rsa thing
 
     print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
     while True:
@@ -199,7 +194,7 @@ def gen_rsakeys(contents):
             break      
 
         elif selection == '2':
-            print 'generating rsa key (may take a while) :'
+            print 'generating rsa key (may take a while) :\n\ncollision block:\n----------------'
             with open('./temp/temp2','wb') as f:
                 f.write(contents[4:])
             os.system('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1')
@@ -208,14 +203,14 @@ def gen_rsakeys(contents):
             with open('./temp/collout2_1','rb') as f:
                 contentsc=f.read()
 
+            print ('\n\nend block :\n---------------------\n\ngenerating:')
             b1_1=contentsb[256:384]
             b2_1=contentsc[256:384]
             b1=int(binascii.hexlify(b1_1),16)
             b2=int(binascii.hexlify(b2_1),16)
-            #print type(b1)
-            #print b1
             found=0
-            indicator='generating rsa key (may take a while) :.'
+            i=0
+            
             while True:
                 p1=random_prime_coprime(512,65537)
                 p2=random_prime_coprime(512,65537)
@@ -224,6 +219,7 @@ def gen_rsakeys(contents):
                 p3=p1*p2
                 b0=crt(b1*2**1024,b2*2**1024,p1,p2)
                 k=0
+                starttime=timeit.default_timer()
                 while True:
                    b=b0+p3*k
                    if b >= 2**1024:
@@ -232,15 +228,23 @@ def gen_rsakeys(contents):
                    q2=(b2*2**1024+b)/p2
                    if is_prime(q1) and is_prime(q2) and gcd(q1-1,65537) == 1 and gcd(q2-1,65537) == 1 :
                        found = 1
-                       print 'found!!!!!'
+                       endtime=timeit.default_timer()
+                       time=endtime-starttime
+                       print ('\nfound! running time: {}'.format(time))
+                       sys.stdout.flush()
                        break
                    k+=1
                    
                 if found == 1 :
                     break
-                sys.stdout.write("\033[F")
-                print indicator
-                indicator+='.'
+                if i%50 == 0 :
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+                i+=1
+                
+            print len(hex(b))
+            contents1=contents+b1_1+str(hex(b))
+            contents2=contents+b2_1+str(hex(b))
             break
 
         else:
