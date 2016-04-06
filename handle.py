@@ -6,14 +6,15 @@ from sys import stdin
 import hashlib
 import os
 import argparse
+import base64
 
 def genfile(base_contents1,base_contents2):
     with open('./gen_certs/certificate1.cer','wb') as outfile1:
         outfile1.write(base_contents1)
-
     with open('./gen_certs/certificate2.cer','wb') as outfile2:
         outfile2.write(base_contents2)
-
+    os.system('openssl x509 -in ./gen_certs/certificate1.cer -inform DER -out ./gen_certs/certificate1.pem')
+    os.system('openssl x509 -in ./gen_certs/certificate2.cer -inform DER -out ./gen_certs/certificate2.pem')
 
 
 def modify_contents(file_contents, start, end, name):
@@ -93,7 +94,18 @@ def verify_md5_sign(contents1,contents2):
     else:
         print '\nBad collision :(\nplease consider rerunning program\n--------'
         
-
+def gen_CA_files(data):
+    os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
+    with open('./temp/temp_CAkey.cer','rb') as f1:
+        with open('./gen_certs/CA.cer','wb') as f2:
+            with open('./CA_cert/CA.cer','rb') as f3:
+                contents3=f3.read()
+                contents1=f1.read()
+                contents2=contents3[:224]+contents1[32:288]+contents3[480:]
+                f2.write(contents2)
+    os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
+    print 'Generating CA certificates.....[OK]'
+        
 
 def gen_sign(contents1,contents2):    
     with open('./temp/tbs1','wb') as temp1:
@@ -104,6 +116,8 @@ def gen_sign(contents1,contents2):
     print 'Please enter path to CA rsa key:'
     data = stdin.readline().strip()
 
+    gen_CA_files(data)
+    
     #todo: might consider replacing quite deprecated os.system
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
