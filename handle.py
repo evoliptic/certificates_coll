@@ -127,14 +127,17 @@ def gen_CA_files(data):
     print 'Generating CA certificates.....[OK]'
         
 
-def gen_sign(contents1,contents2):    
+def gen_sign(contents1,contents2,data):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
         temp2.write(contents2[4:549])
 
-    print 'Please enter path to CA rsa key:'
-    data = stdin.readline().strip()
+    if data is None:
+        print 'Please enter path to CA rsa key:'
+        data = stdin.readline().strip()
+
+    print 'data:'+data
 
     gen_CA_files(data)
     
@@ -242,7 +245,7 @@ def gen_rsakeys(contents):
                     sys.stdout.flush()
                 i+=1
                 
-            print len(hex(b))
+            #print len(hex(b))
             contents1=contents+b1_1+str(hex(b))
             contents2=contents+b2_1+str(hex(b))
             break
@@ -268,7 +271,7 @@ def main():
     parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
     parser.add_argument('-c', help='clean temporary files after execution', action='store_true')
-
+    parser.add_argument('--ca-key', metavar='in-ca-file', help='CA key pair', type=argparse.FileType('rb'))
     try:
         results = parser.parse_args()
     except IOError, msg:
@@ -291,7 +294,7 @@ def main():
     base_contents1,base_contents2=gen_rsakeys(base_contents)
 
     print 'you will now generate the signature parts of the certificates'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.ca-key.read())
 
     genfile(base_contents1,base_contents2)
     verify_md5_sign(base_contents1,base_contents2)
