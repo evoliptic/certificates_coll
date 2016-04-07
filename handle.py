@@ -10,7 +10,7 @@ import argparse
 import base64
 import random
 from gmpy2 import *
-import timeit
+import time
 import subprocess
 
 """
@@ -164,7 +164,7 @@ output :
         a CA certificate with the name 'CA' is created in the directory gen_certs/
 """
 def gen_CA_files(data):
-    subprocess.call('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data),shell=True)
+    subprocess.call('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data),shell=False)
     with open('./temp/temp_CAkey.cer','rb') as f1:
         with open('./base_certs/CA_template.cer','rb') as f3:
             contents3=f3.read()
@@ -176,7 +176,9 @@ def gen_CA_files(data):
         f2.write(contents2)
     subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
     print 'Generating CA certificates.....[OK]'
-        
+
+
+    
 """
 this function creates the signatures part of our colliding certificates, and creates the CA certificates if wanted in the mean time
 note: we could normally calculate the signature of only one certificate, as the second should colliding, but we calculate here the two, as it permits to check if there is collision or not
@@ -221,6 +223,7 @@ def gen_sign(contents1,contents2,data,mybool,mybool2):
     return contents1,contents2
 
 
+
 """
 function to generate a random prime of a given bits size
 input :
@@ -232,6 +235,7 @@ output :
 def random_prime(bitsize):
     x = random.randint(0, 1 << (bitsize - 1))
     return next_prime(x)
+
 
 
 """
@@ -269,6 +273,26 @@ def crt(a1,a2,n1,n2):
     inv1= invert(n2,n1)
     inv2= invert(n1,n2)
     return (-( a1*inv1*n2 + a2*inv2*n1))%N
+
+def hexstr(b):  # bytearray arg
+    return "'%s'" % ''.join('\\x'+("%02x" % i) for i in b)
+
+def base256_encode(n, minlen=0): # int/long to byte array
+    if n > 0:
+        arr = []
+        while n:
+            n, rem = divmod(n, 256)
+            arr.append(rem)
+            b = bytearray(reversed(arr))
+    elif n == 0:
+        b = bytearray(b'\x00')
+    else:
+        raise ValueError
+
+    if minlen > 0 and len(b) < minlen: # zero padding needed?
+        b = (minlen-len(b)) * '\x00' + b
+    return b
+
 
 
 """
@@ -327,6 +351,7 @@ def gen_rsakeys(contents,mybool):
             i=0
             sys.stdout.write("generating :")
             sys.stdout.flush()
+            starttime=time.time()
             while True:
                 p1=random_prime_coprime(512,65537)
                 p2=random_prime_coprime(512,65537)
@@ -335,7 +360,6 @@ def gen_rsakeys(contents,mybool):
                 p3=p1*p2
                 b0=crt(b1*2**1024,b2*2**1024,p1,p2)
                 k=0
-                starttime=timeit.default_timer()
                 while True:
                    b=b0+p3*k
                    if b >= 2**1024:
@@ -344,9 +368,10 @@ def gen_rsakeys(contents,mybool):
                    q2=(b2*2**1024+b)/p2
                    if is_prime(q1) and is_prime(q2) and gcd(q1-1,65537) == 1 and gcd(q2-1,65537) == 1 :
                        found = 1
-                       endtime=timeit.default_timer()
-                       time=endtime-starttime
-                       print ('\nfound! running time: {}'.format(time))
+                       endtime=time.time()
+                       tottime=endtime-starttime
+                       #write asn and check?
+                       print ('\nfound! running time: {}m {}s'.format(int(round(tottime)/60),round(tottime)%60))
                        sys.stdout.flush()
                        break
                    k+=1
@@ -358,15 +383,10 @@ def gen_rsakeys(contents,mybool):
                     sys.stdout.flush()
                 i+=1
             
-            print type(b)
-            print 'ahah'
-            print len(hex(b)[2:])
-            print 'eheh'
-            contents1=contents+b1_1
-            contents2=contents+b2_1
-            #for j in struct.pack('>L',b):
-                #contents1=contents1+j
-                #contents2=contents2+j
+            b_str=binascii.unhexlify('{:0{}x}'.format(b, int(1024/4)))
+            print str(len(b_str))
+            contents1=contents+b1_1+b_str
+            contents2=contents+b2_1+b_str
             break
 
         else:
@@ -377,6 +397,7 @@ def gen_rsakeys(contents,mybool):
 
     return contents1,contents2
         
+
 
 """
 function to check created colliding certificates against the CA certificate
@@ -389,13 +410,16 @@ def verify_certificates(outname):
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname),shell=True)
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname),shell=True)
 
+
+    
 """
 function to clean temporary files used
 """
 def clean_temp():
-    subprocess.call('rm temp/*',shell=True)
+    subprocess.call('rm -r temp/',shell=True)
 
 
+    
 """
 main function: options parser and calling all others
 """
@@ -413,6 +437,11 @@ def main():
         results = parser.parse_args()
     except IOError, msg:
         parser.error(str(msg))
+
+    if not os.path.exists('temp'):
+        os.makedirs('temp')    
+    if not os.path.exists('gen_certs'):
+        os.makedirs('gen_certs')    
 
     if results.i is not None :
         base_contents=results.i.read()
