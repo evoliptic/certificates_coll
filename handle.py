@@ -106,7 +106,7 @@ def gen_CA_sign(contents,data):
     with open('./temp/CA_sig','rb') as sig:
         sig_contents=sig.read()
  
-    contents1=contents[:539]+sig_contents
+    contents1=contents[:540]+sig_contents
     return contents1
 
 
@@ -122,9 +122,7 @@ def gen_CA_files(data):
     contents2=gen_CA_sign(contents2,data)            
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
-    print 'hh'
     os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
-    print 'kk'
     print 'Generating CA certificates.....[OK]'
         
 
@@ -264,6 +262,8 @@ def gen_rsakeys(contents,mybool):
 
 
 def verify_certificates(outname):
+    if outname is None:
+        outname='certificate'
     os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname))
     os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname))
 

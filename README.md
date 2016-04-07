@@ -60,7 +60,6 @@ TODO list:
 ----------
 - finish readme
 - implement the real rsa generation ------> ok but have to check for ending
-- verify the ca certificate generation 
 - go a bit more user friendly
 - review possibly deprecated methods
 - check for creating directories
