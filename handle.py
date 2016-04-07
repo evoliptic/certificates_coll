@@ -5,12 +5,22 @@ import sys
 from sys import stdin
 import hashlib
 import os
+import struct
 import argparse
 import base64
 import random
 from gmpy2 import *
 import timeit
+from subprocess import call
 
+
+"""
+this function generates the final certificates in format cer and pem in the output directory gen_certs.
+input :
+       base_contents1 the string reprensatating the first certificate in cer format
+       base_contents2 the string reprensatating the second certificate in cer format
+       outname the name of the output certificates, will be appended with 1 and 2
+"""
 def genfile(base_contents1,base_contents2,outname):
     if outname is None:
         outname='certificate'
@@ -18,10 +28,23 @@ def genfile(base_contents1,base_contents2,outname):
         outfile1.write(base_contents1)
     with open('./gen_certs/{}2.cer'.format(outname),'wb') as outfile2:
         outfile2.write(base_contents2)
-    os.system('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname))
-    os.system('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname))
+    #os.system('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname))
+    subprocess.call('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname), shell=True)
+    #os.system('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname))
+    subprocess.call('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname),shell=True)
 
 
+"""
+this function permits to modify the contents of the start template used in the program
+input :
+       file_contents the template to modify
+       start the starting index of the modification to take place
+       end the ending index of the modification to take place
+       name the name of the field being modificated
+
+output :
+        the modified template
+"""
 def modify_contents(file_contents, start, end, name):
     base_len=end-start
     print ('----------\nyou chose to modify {},with actual value"{}" you must enter a length of {}\n new string:'.format(name,file_contents[start:end],base_len))
@@ -39,7 +62,15 @@ def modify_contents(file_contents, start, end, name):
 
 
 
+"""
+menu to modify the several parameters of the start template of our server certificate
+input :
+       file_contents the starting template to modify
+       mybool boolean to see if demo mode is activated or not (if activated the user won't have any interaction here)
 
+output :
+        the modified template
+"""
 def modify_parameters_menu(file_contents, mybool):
     menu = {}
     print('[within options 1,2,3 and 4 of menu, we ask that total length of new value for the chosen parameter is equal to the length of the previous one (in order to not break whole structure). within option 5, you must provide a whole new asn1 starting part of the certificate(260 bytes length). If you don\'t want to modify any parameter, enter option 6]\n')
@@ -83,6 +114,12 @@ def modify_parameters_menu(file_contents, mybool):
     return file_contents
 
 
+"""
+this function verifies the md5 and sha1 values of the 'to be signed' parts of certificates, and print if collision is effective or not
+input :
+       contents1 buffer representing cer of first certificate
+       contents2 buffer representing cer of second certificate
+"""
 def verify_md5_sign(contents1,contents2):
     print 'MD5 values:'
     md5_1 = hashlib.md5(contents1[4:549]).hexdigest()
@@ -99,10 +136,22 @@ def verify_md5_sign(contents1,contents2):
     else:
         print '\nBad collision :(\nplease consider rerunning program\n--------'
 
+
+
+"""
+this function generates the signature part of the CA certificate
+input :
+       contents buffer representating the CA certificate
+       data pwd to CA key pair
+
+output : 
+        the modified buffer with good signature representing the CA certificate
+"""
 def gen_CA_sign(contents,data):    
     with open('./temp/CA_tbs','wb') as temp:
         temp.write(contents[4:520])
-    os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data))
+    #os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data))
+    subprocess.call('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data), shell=True)
     with open('./temp/CA_sig','rb') as sig:
         sig_contents=sig.read()
  
@@ -110,9 +159,17 @@ def gen_CA_sign(contents,data):
     return contents1
 
 
-        
+"""
+this functions makes the necessary to generate a CA certificate
+input :
+       data pwd to CA key pair
+
+output : 
+        a CA certificate with the name 'CA' is created in the directory gen_certs/
+"""
 def gen_CA_files(data):
-    os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
+    #os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
+    subprocess.call('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data),shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
         with open('./base_certs/CA_template.cer','rb') as f3:
             contents3=f3.read()
@@ -122,10 +179,23 @@ def gen_CA_files(data):
     contents2=gen_CA_sign(contents2,data)            
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
-    os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
+    #os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
+    subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
     print 'Generating CA certificates.....[OK]'
         
+"""
+this function creates the signatures part of our colliding certificates, and creates the CA certificates if wanted in the mean time
+note: we could normally calculate the signature of only one certificate, as the second should colliding, but we calculate here the two, as it permits to check if there is collision or not
+input :
+       contents1 buffer representing first certificate
+       contents2 buffer representing second certificate
+       data pwd to CA key pair
+       mybool check if CA key pair was already entered on command line
+       mybool2 boolean to see if we should generate CA certificate or not
 
+output :
+        the modified buffers representing our colliding certificates (that should be complete now)
+"""
 def gen_sign(contents1,contents2,data,mybool,mybool2):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
@@ -144,8 +214,10 @@ def gen_sign(contents1,contents2,data,mybool,mybool2):
     if mybool2 is True:
         gen_CA_files(data)
     
-    os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
-    os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
+    #os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
+    subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data),shell=True)
+    #os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
+    subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data),shell=True)
 
     with open('./temp/sig1','rb') as sig1:
         sig1_contents=sig1.read()
@@ -157,10 +229,28 @@ def gen_sign(contents1,contents2,data,mybool,mybool2):
     return contents1,contents2
 
 
+"""
+function to generate a random prime of a given bits size
+input :
+       the bits size wanted for our number
+
+output :
+        a random prime of approximately the bitsize
+"""
 def random_prime(bitsize):
     x = random.randint(0, 1 << (bitsize - 1))
     return next_prime(x)
 
+
+"""
+function to generate a random prime which verifies that this prime is coprime with the entered number
+input :
+       bitsize the bits size wanted for our number
+       n the number to be coprime with
+
+output :
+        a random prime coprime with n
+"""
 def random_prime_coprime(bitsize, n):
         x = random_prime(bitsize)
         if gcd(x - 1, n) == 1:
@@ -169,12 +259,36 @@ def random_prime_coprime(bitsize, n):
             return random_prime_coprime(bitsize, n)
                 
 
+"""
+function to calculate a said number equal to some modulos using the chinese reminder theorem 
+
+input :
+      a1 the right member of first equation moduli
+      a2 the right member of second equation moduli
+      n1 the first moduli
+      n2 the second moduli
+
+output :
+        the number verifying the following equations: x%n1=a1
+                                                      x%n2=a2
+"""
 def crt(a1,a2,n1,n2):
     N=n1*n2
     inv1= invert(n2,n1)
     inv2= invert(n1,n2)
-    return -( a1*inv1*n2 + a2*inv2*n1)%N
-        
+    return (-( a1*inv1*n2 + a2*inv2*n1))%N
+
+
+"""
+function to generate the rsa key in the certificates. can generate random but non fully calculated colliding rsa keys fastly, or fully calculated ones but it takes longer
+
+input :
+       contents the first part of certificate in cer format
+       mybool boolean to see if in demo mode (if in demo mode, random colliding rsa keys are generated)
+
+output :
+       two buffers representing colliding not full complete certificates
+""" 
 def gen_rsakeys(contents,mybool):
     if mybool is False:
         print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
@@ -190,7 +304,8 @@ def gen_rsakeys(contents,mybool):
                 with open('./temp/temp1','wb') as f2:
                     contentsa=contents[4:]+f.read()
                     f2.write(contentsa)
-            os.system('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2')
+            #os.system('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2')
+            subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2',shell=True)
             print '\n\nGenerating more complete certificates....[OK]'
             with open('./base_certs/end_template.cer','rb') as f1:
                 with open('./temp/collout1','rb') as f2:
@@ -204,20 +319,24 @@ def gen_rsakeys(contents,mybool):
             print 'generating rsa key (may take a while) :\n\ncollision block:\n----------------'
             with open('./temp/temp2','wb') as f:
                 f.write(contents[4:])
-            os.system('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1')
+            #os.system('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1')
+            subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1',shell=True)
             with open('./temp/collout1_1','rb') as f:
                 contentsb=f.read()
             with open('./temp/collout2_1','rb') as f:
                 contentsc=f.read()
 
-            print '\n\nend block :\n---------------------\n\n'
-            b1_1=contentsb[256:384]
-            b2_1=contentsc[256:384]
+            print '\n\nend block :\n---------------------'
+            b1_1=contentsb[256:]
+            b2_1=contentsc[256:]
+            print 'b1 ' + str(len(binascii.hexlify(b1_1))/2)
+            print 'b2 ' + str(len(binascii.hexlify(b2_1))/2)
             b1=int(binascii.hexlify(b1_1),16)
             b2=int(binascii.hexlify(b2_1),16)
             found=0
             i=0
             sys.stdout.write("generating :")
+            sys.stdout.flush()
             while True:
                 p1=random_prime_coprime(512,65537)
                 p2=random_prime_coprime(512,65537)
@@ -248,29 +367,51 @@ def gen_rsakeys(contents,mybool):
                     sys.stdout.write(".")
                     sys.stdout.flush()
                 i+=1
-                
-            #print len(hex(b))
-            contents1=contents+b1_1+str(hex(b))
-            contents2=contents+b2_1+str(hex(b))
+            
+            print type(b)
+            print 'ahah'
+            print len(hex(b)[2:])
+            print 'eheh'
+            contents1=contents+b1_1
+            contents2=contents+b2_1
+            #for j in struct.pack('>L',b):
+                #contents1=contents1+j
+                #contents2=contents2+j
             break
 
         else:
             print 'unknown option selected'
 
+    with open('./temp/ahah.cer','wb') as f:
+        f.write(contents1)
+
     return contents1,contents2
         
 
-
+"""
+function to check created colliding certificates against the CA certificate
+input :
+       outname the starting of the name of output certificates
+"""
 def verify_certificates(outname):
     if outname is None:
         outname='certificate'
-    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname))
-    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname))
+    #os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname))
+    subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname),shell=True)
+    #os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname))
+    subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname),shell=True)
 
+"""
+function to clean temporary files used
+"""
 def clean_temp():
-    os.system('rm temp/*')
+    #os.system('rm temp/*')
+    subprocess.call('rm temp/*',shell=True)
 
 
+"""
+main function: options parser and calling all others
+"""
 def main():
 
     parser = argparse.ArgumentParser()
@@ -313,5 +454,7 @@ def main():
     if results.c is True:
         clean_temp()    
 
-
+"""
+running program
+"""
 main()                                

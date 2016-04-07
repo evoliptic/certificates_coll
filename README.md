@@ -54,7 +54,12 @@ utilization
 
 explanations about how the program works
 ----------------------------------------
-blahblahblah
+the program works generally as the following : 
+it takes in entry a pwd towards a CA key pair and a starting template of a certificate in cer format.
+This CA key pair must be of 2048 bit length key __cf__and must not be protected using cbc mode__. It can be generated using the following command '$openssl genrsa 2048'.
+
+
+
 
 TODO list:
 ----------
@@ -64,6 +69,5 @@ TODO list:
 - review possibly deprecated methods
 - check for creating directories
 - calculate numbers of cer start template
-- comment code
 
 
