@@ -102,9 +102,7 @@ def verify_md5_sign(contents1,contents2):
 def gen_CA_sign(contents,data):    
     with open('./temp/CA_tbs','wb') as temp:
         temp.write(contents[4:520])
-    
-    os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig< ./temp/CA_tbs'.format(data))
-
+    os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data))
     with open('./temp/CA_sig','rb') as sig:
         sig_contents=sig.read()
  
@@ -116,20 +114,21 @@ def gen_CA_sign(contents,data):
 def gen_CA_files(data):
     os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
     with open('./temp/temp_CAkey.cer','rb') as f1:
-        with open('./CA_cert/CA.cer','rb') as f3:
+        with open('./base_certs/CA_template.cer','rb') as f3:
             contents3=f3.read()
             contents1=f1.read()
-            contents2=contents3[:224]+contents1[32:288]+contents3[480:]
+            contents2=contents3[:225]+contents1[33:289]+contents3[481:]
 
     contents2=gen_CA_sign(contents2,data)            
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
-
+    print 'hh'
     os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
+    print 'kk'
     print 'Generating CA certificates.....[OK]'
         
 
-def gen_sign(contents1,contents2,data,mybool):    
+def gen_sign(contents1,contents2,data,mybool,mybool2):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
@@ -144,7 +143,8 @@ def gen_sign(contents1,contents2,data,mybool):
     if mybool is True:
         data='./CA_cert/CA.key'
                 
-    #gen_CA_files(data)
+    if mybool2 is True:
+        gen_CA_files(data)
     
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
@@ -277,6 +277,7 @@ def main():
     parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
     parser.add_argument('-d', help='demo mode', action='store_true')
+    parser.add_argument('-g', help='generate CA certificate', action='store_true')
     parser.add_argument('-c', help='clean temporary files after execution', action='store_true')
     parser.add_argument('--CAkey', metavar='in-CA-key', help='CA key pair')
     parser.add_argument('-o', metavar='output name', help='output name use when generating new certificates (will generate {new_name}1.cer and {new_name}2.cer')
@@ -302,7 +303,7 @@ def main():
     base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
     print '\n\nyou will now generate the signature parts of the certificates'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.d)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.d,results.g)
 
     genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
