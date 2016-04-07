@@ -40,7 +40,7 @@ def modify_contents(file_contents, start, end, name):
 
 
 
-def modify_parameters_menu(file_contents):
+def modify_parameters_menu(file_contents, mybool):
     menu = {}
     print('[within options 1,2,3 and 4 of menu, we ask that total length of new value for the chosen parameter is equal to the length of the previous one (in order to not break whole structure). within option 5, you must provide a whole new asn1 starting part of the certificate(260 bytes length). If you don\'t want to modify any parameter, enter option 6]\n')
     menu['1']="modify common name"
@@ -51,6 +51,8 @@ def modify_parameters_menu(file_contents):
     menu['6']="Exit parameters modifications"
 
     while True:
+        if mybool is True:
+            break
         options=menu.keys()
         options.sort()
         for entry in options:
@@ -127,17 +129,20 @@ def gen_CA_files(data):
     print 'Generating CA certificates.....[OK]'
         
 
-def gen_sign(contents1,contents2,data):    
+def gen_sign(contents1,contents2,data,mybool):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
         temp2.write(contents2[4:549])
 
-    if data is None:
+    if data is None and mybool is False:
         print 'Please enter path to CA rsa key (press enter to put a default one):'
         data = stdin.readline().strip()
         if data == '':
             data='./CA_cert/CA.key'
+            
+    if mybool is True:
+        data='./CA_cert/CA.key'
                 
     #gen_CA_files(data)
     
@@ -172,12 +177,16 @@ def crt(a1,a2,n1,n2):
     inv2= invert(n1,n2)
     return -( a1*inv1*n2 + a2*inv2*n1)%N
         
-def gen_rsakeys(contents):
-    print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
+def gen_rsakeys(contents,mybool):
+    if mybool is False:
+        print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
     while True:
-        selection=raw_input("Please Select:")
-        print('\n')
-
+        if mybool is True:
+            selection='1'
+        else:
+            selection=raw_input("Please Select:")
+            print('\n')
+        
         if selection =='1':
             with open('./base_certs/rsa_template.cer','rb') as f:
                 with open('./temp/temp1','wb') as f2:
@@ -267,6 +276,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
+    parser.add_argument('-d', help='demo mode', action='store_true')
     parser.add_argument('-c', help='clean temporary files after execution', action='store_true')
     parser.add_argument('--CAkey', metavar='in-CA-key', help='CA key pair')
     parser.add_argument('-o', metavar='output name', help='output name use when generating new certificates (will generate {new_name}1.cer and {new_name}2.cer')
@@ -286,13 +296,13 @@ def main():
     print 'if you used an input file on command line, you have already the start of a cer file (asn1 cimpliant) to work on. If not, you have been given an arbitrary starting cer file.\n'
 
     print 'first you will changes the parameters of the client in the certificates to be generated :\n----------------------------------------------------------------------------------------'
-    base_contents = modify_parameters_menu(base_contents)
+    base_contents = modify_parameters_menu(base_contents,results.d)
 
     print 'you will now generate rsa moduli for the certificates'
-    base_contents1,base_contents2=gen_rsakeys(base_contents)
+    base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
     print '\n\nyou will now generate the signature parts of the certificates'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.d)
 
     genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
