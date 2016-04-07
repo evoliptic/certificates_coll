@@ -11,8 +11,7 @@ import base64
 import random
 from gmpy2 import *
 import timeit
-from subprocess import call
-
+import subprocess
 
 """
 this function generates the final certificates in format cer and pem in the output directory gen_certs.
@@ -28,9 +27,7 @@ def genfile(base_contents1,base_contents2,outname):
         outfile1.write(base_contents1)
     with open('./gen_certs/{}2.cer'.format(outname),'wb') as outfile2:
         outfile2.write(base_contents2)
-    #os.system('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname))
     subprocess.call('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname), shell=True)
-    #os.system('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname))
     subprocess.call('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname),shell=True)
 
 
@@ -150,7 +147,6 @@ output :
 def gen_CA_sign(contents,data):    
     with open('./temp/CA_tbs','wb') as temp:
         temp.write(contents[4:520])
-    #os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data))
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data), shell=True)
     with open('./temp/CA_sig','rb') as sig:
         sig_contents=sig.read()
@@ -168,7 +164,6 @@ output :
         a CA certificate with the name 'CA' is created in the directory gen_certs/
 """
 def gen_CA_files(data):
-    #os.system('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data))
     subprocess.call('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data),shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
         with open('./base_certs/CA_template.cer','rb') as f3:
@@ -179,7 +174,6 @@ def gen_CA_files(data):
     contents2=gen_CA_sign(contents2,data)            
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
-    #os.system('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem')
     subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
     print 'Generating CA certificates.....[OK]'
         
@@ -214,9 +208,7 @@ def gen_sign(contents1,contents2,data,mybool,mybool2):
     if mybool2 is True:
         gen_CA_files(data)
     
-    #os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data),shell=True)
-    #os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data),shell=True)
 
     with open('./temp/sig1','rb') as sig1:
@@ -304,7 +296,6 @@ def gen_rsakeys(contents,mybool):
                 with open('./temp/temp1','wb') as f2:
                     contentsa=contents[4:]+f.read()
                     f2.write(contentsa)
-            #os.system('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2')
             subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2',shell=True)
             print '\n\nGenerating more complete certificates....[OK]'
             with open('./base_certs/end_template.cer','rb') as f1:
@@ -319,7 +310,6 @@ def gen_rsakeys(contents,mybool):
             print 'generating rsa key (may take a while) :\n\ncollision block:\n----------------'
             with open('./temp/temp2','wb') as f:
                 f.write(contents[4:])
-            #os.system('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1')
             subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1',shell=True)
             with open('./temp/collout1_1','rb') as f:
                 contentsb=f.read()
@@ -396,16 +386,13 @@ input :
 def verify_certificates(outname):
     if outname is None:
         outname='certificate'
-    #os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname))
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname),shell=True)
-    #os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname))
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname),shell=True)
 
 """
 function to clean temporary files used
 """
 def clean_temp():
-    #os.system('rm temp/*')
     subprocess.call('rm temp/*',shell=True)
 
 

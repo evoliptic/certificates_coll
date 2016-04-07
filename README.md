@@ -66,7 +66,6 @@ TODO list:
 - finish readme
 - implement the real rsa generation ------> ok but have to check for ending
 - go a bit more user friendly
-- review possibly deprecated methods
 - check for creating directories
 - calculate numbers of cer start template
 
