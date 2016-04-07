@@ -102,6 +102,6 @@ Unfortunately, some tests show that it would require around 20 days to generate 
 
 TODO list:
 ----------
-- implement the real rsa generation ------> ok but have to check for ending
-- go a bit more user friendly
+- check for validated time certifs
+- review for final
 

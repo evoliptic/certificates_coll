@@ -118,6 +118,7 @@ input :
        contents2 buffer representing cer of second certificate
 """
 def verify_md5_sign(contents1,contents2):
+    print 'verifying signatures:\n------------------'
     print 'MD5 values:'
     md5_1 = hashlib.md5(contents1[4:549]).hexdigest()
     md5_2 = hashlib.md5(contents2[4:549]).hexdigest()
@@ -147,7 +148,7 @@ output :
 def gen_CA_sign(contents,data):    
     with open('./temp/CA_tbs','wb') as temp:
         temp.write(contents[4:520])
-    subprocess.call('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data), shell=True)
+    p1=subprocess.call('openssl dgst -md5 -sign {} -out ./temp/CA_sig < ./temp/CA_tbs'.format(data), shell=True)
     with open('./temp/CA_sig','rb') as sig:
         sig_contents=sig.read()
  
@@ -164,7 +165,7 @@ output :
         a CA certificate with the name 'CA' is created in the directory gen_certs/
 """
 def gen_CA_files(data):
-    subprocess.call('openssl rsa -in {} -outform DER -pubout > ./temp/temp_CAkey.cer'.format(data),shell=False)
+    subprocess.call('openssl rsa -in {} -outform DER -pubout -out ./temp/temp_CAkey.cer >/dev/null 2>&1'.format(data),stdout=None,shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
         with open('./base_certs/CA_template.cer','rb') as f3:
             contents3=f3.read()
@@ -175,7 +176,7 @@ def gen_CA_files(data):
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
     subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
-    print 'Generating CA certificates.....[OK]'
+    print 'Generating CA certificates.....[OK]\n\n'
 
 
     
@@ -274,27 +275,31 @@ def crt(a1,a2,n1,n2):
     inv2= invert(n1,n2)
     return (-( a1*inv1*n2 + a2*inv2*n1))%N
 
-def hexstr(b):  # bytearray arg
-    return "'%s'" % ''.join('\\x'+("%02x" % i) for i in b)
+"""
+function to write the rsa mathematics to files
+input :
+       rsa coeffs
+output :
+       files asn1 compliant for rsa keys
+"""
+def gen_rsa_mathematics(p1,q1,p2,q2,n1,n2):
+    phi1=(p1-1)*(q1-1)
+    d1=invert(65537,phi1)
+    exponent1_1=d1%(p1-1)
+    exponent1_2=d1%(q1-1)
+    coefficient1=invert(q1,p1)
+    with open('./gen_certs/rsa_key1.txt','w') as f:
+        f.write('asn1=SEQUENCE:rsa_key\n\n[rsa_key]\nversion=INTEGER:0\nmodulus=INTEGER:{}\npubExp=INTEGER:65537\nprivExp=INTEGER:{}\np=INTEGER:{}\nq=INTEGER:{}\ne1=INTEGER:{}\ne2=INTEGER:{}\ncoeff=INTEGER:{}'.format(n1,d1,p1,q1,exponent1_1,exponent1_2,coefficient1))
 
-def base256_encode(n, minlen=0): # int/long to byte array
-    if n > 0:
-        arr = []
-        while n:
-            n, rem = divmod(n, 256)
-            arr.append(rem)
-            b = bytearray(reversed(arr))
-    elif n == 0:
-        b = bytearray(b'\x00')
-    else:
-        raise ValueError
+    phi2=(p2-1)*(q2-1)
+    d2=invert(65537,phi2)
+    exponent2_1=d2%(p2-1)
+    exponent2_2=d2%(q2-1)
+    coefficient2=invert(q2,p2)
+    with open('./gen_certs/rsa_key2.txt','w') as f:
+        f.write('asn1=SEQUENCE:rsa_key\n\n[rsa_key]\nversion=INTEGER:0\nmodulus=INTEGER:{}\npubExp=INTEGER:65537\nprivExp=INTEGER:{}\np=INTEGER:{}\nq=INTEGER:{}\ne1=INTEGER:{}\ne2=INTEGER:{}\ncoeff=INTEGER:{}'.format(n2,d2,p2,q2,exponent2_1,exponent2_2,coefficient2))
 
-    if minlen > 0 and len(b) < minlen: # zero padding needed?
-        b = (minlen-len(b)) * '\x00' + b
-    return b
-
-
-
+    
 """
 function to generate the rsa key in the certificates. can generate random but non fully calculated colliding rsa keys fastly, or fully calculated ones but it takes longer
 
@@ -321,7 +326,6 @@ def gen_rsakeys(contents,mybool):
                     contentsa=contents[4:]+f.read()
                     f2.write(contentsa)
             subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp1 -o ./temp/collout1 ./temp/collout2',shell=True)
-            print '\n\nGenerating more complete certificates....[OK]'
             with open('./base_certs/end_template.cer','rb') as f1:
                 with open('./temp/collout1','rb') as f2:
                     contents1=contents[:4]+f2.read()+f1.read()
@@ -331,7 +335,7 @@ def gen_rsakeys(contents,mybool):
             break      
 
         elif selection == '2':
-            print 'generating rsa key (may take a while) :\n\ncollision block:\n----------------'
+            print 'generating rsa key (may take a while) :\n------------------------------\ncollision block:\n------------------'
             with open('./temp/temp2','wb') as f:
                 f.write(contents[4:])
             subprocess.call('./fastcoll/build/fastcoll -p ./temp/temp2 -o ./temp/collout1_1 ./temp/collout2_1',shell=True)
@@ -343,8 +347,6 @@ def gen_rsakeys(contents,mybool):
             print '\n\nend block :\n---------------------'
             b1_1=contentsb[256:]
             b2_1=contentsc[256:]
-            print 'b1 ' + str(len(binascii.hexlify(b1_1))/2)
-            print 'b2 ' + str(len(binascii.hexlify(b2_1))/2)
             b1=int(binascii.hexlify(b1_1),16)
             b2=int(binascii.hexlify(b2_1),16)
             found=0
@@ -370,7 +372,7 @@ def gen_rsakeys(contents,mybool):
                        found = 1
                        endtime=time.time()
                        tottime=endtime-starttime
-                       #write asn and check?
+                       verify_rsa(p1,q1,p2,q2,b1*2**1024+b,b2*2**1024+b)
                        print ('\nfound! running time: {}m {}s'.format(int(round(tottime)/60),round(tottime)%60))
                        sys.stdout.flush()
                        break
@@ -384,16 +386,16 @@ def gen_rsakeys(contents,mybool):
                 i+=1
             
             b_str=binascii.unhexlify('{:0{}x}'.format(b, int(1024/4)))
-            print str(len(b_str))
-            contents1=contents+b1_1+b_str
-            contents2=contents+b2_1+b_str
+            with open('./base_certs/end_template.cer','rb') as f1:
+                contents1=contents+b1_1+b_str+f1.read()
+            with open('./base_certs/end_template.cer','rb') as f1:
+                contents2=contents+b2_1+b_str+f1.read()
+
+            print '\n\nGenerating more complete certificates....[OK]'
             break
 
         else:
             print 'unknown option selected'
-
-    with open('./temp/ahah.cer','wb') as f:
-        f.write(contents1)
 
     return contents1,contents2
         
@@ -407,6 +409,7 @@ input :
 def verify_certificates(outname):
     if outname is None:
         outname='certificate'
+    print 'making the check against CA certificate :'
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname),shell=True)
     subprocess.call('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname),shell=True)
 
@@ -456,10 +459,10 @@ def main():
     print 'first you will changes the parameters of the client in the certificates to be generated :\n----------------------------------------------------------------------------------------'
     base_contents = modify_parameters_menu(base_contents,results.d)
 
-    print 'you will now generate rsa moduli for the certificates'
+    print 'you will now generate rsa moduli for the certificates\n'
     base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
-    print '\n\nyou will now generate the signature parts of the certificates'
+    print '\n\ngenerating the signature parts of the certificates.....[OK]\n'
     base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.d,results.g)
 
     genfile(base_contents1,base_contents2,results.o)
