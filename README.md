@@ -45,7 +45,10 @@ utilization
 	  -h show help
 	  -i based cer template infile (more explanations following)
 	  -v check resulting colliding certificates against root one
-	  -ca-key generated key pair for CA without cbc protection and 2048 bits length(obtained from 'openssl genrsa -out CA.key 2048')
+	  --CAkey generated key pair for CA without cbc protection and 2048 bits length(obtained from 'openssl genrsa -out CA.key 2048')
+	  -o output name to use (will generate {new_name}1.cer and {new_name}2.cer in gen_certs/
+	  -c clean temporary files used
+	  -d demo mode, avoiding user input just to show and see time to generation
 
 
 
@@ -58,9 +61,11 @@ TODO list:
 - finish readme
 - implement the real rsa generation ------> ok but have to check for ending
 - verify the ca certificate generation 
-- implement all options: output name, ca-key (en cours)
+- implement all options: demo, 
 - go a bit more user friendly
 - review possibly deprecated methods
-
+- check for creating directories
+- calculate numbers of cer start template
+- comment code
 
 

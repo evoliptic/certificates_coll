@@ -11,13 +11,15 @@ import random
 from gmpy2 import *
 import timeit
 
-def genfile(base_contents1,base_contents2):
-    with open('./gen_certs/certificate1.cer','wb') as outfile1:
+def genfile(base_contents1,base_contents2,outname):
+    if outname is None:
+        outname='certificate'
+    with open('./gen_certs/{}1.cer'.format(outname),'wb') as outfile1:
         outfile1.write(base_contents1)
-    with open('./gen_certs/certificate2.cer','wb') as outfile2:
+    with open('./gen_certs/{}2.cer'.format(outname),'wb') as outfile2:
         outfile2.write(base_contents2)
-    os.system('openssl x509 -in ./gen_certs/certificate1.cer -inform DER -out ./gen_certs/certificate1.pem')
-    os.system('openssl x509 -in ./gen_certs/certificate2.cer -inform DER -out ./gen_certs/certificate2.pem')
+    os.system('openssl x509 -in ./gen_certs/{}1.cer -inform DER -out ./gen_certs/{}1.pem'.format(outname,outname))
+    os.system('openssl x509 -in ./gen_certs/{}2.cer -inform DER -out ./gen_certs/{}2.pem'.format(outname,outname))
 
 
 def modify_contents(file_contents, start, end, name):
@@ -48,8 +50,6 @@ def modify_parameters_menu(file_contents):
     menu['5']="modify total head of certificate"
     menu['6']="Exit parameters modifications"
 
-    #!!!!TO DO!!!!!!
-    #need to provide a way to calculate numbers automatically here to adjust to all templates
     while True:
         options=menu.keys()
         options.sort()
@@ -99,7 +99,7 @@ def verify_md5_sign(contents1,contents2):
 
 def gen_CA_sign(contents,data):    
     with open('./temp/CA_tbs','wb') as temp:
-        temp.write(contents1[4:520])
+        temp.write(contents[4:520])
     
     os.system('openssl dgst -md5 -sign {} -out ./temp/CA_sig< ./temp/CA_tbs'.format(data))
 
@@ -134,12 +134,12 @@ def gen_sign(contents1,contents2,data):
         temp2.write(contents2[4:549])
 
     if data is None:
-        print 'Please enter path to CA rsa key:'
+        print 'Please enter path to CA rsa key (press enter to put a default one):'
         data = stdin.readline().strip()
-
-    print 'data:'+data
-
-    gen_CA_files(data)
+        if data == '':
+            data='./CA_cert/CA.key'
+                
+    #gen_CA_files(data)
     
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data))
     os.system('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data))
@@ -173,9 +173,6 @@ def crt(a1,a2,n1,n2):
     return -( a1*inv1*n2 + a2*inv2*n1)%N
         
 def gen_rsakeys(contents):
-    #need to write extern file to generate good based IV for fastcoll
-    #TODO: why the fuck?
-
     print 'choose an option :\n--------------\n1. generate random key for collision demo (fast)\n2. generate real rsa keys (long)'
     while True:
         selection=raw_input("Please Select:")
@@ -206,14 +203,14 @@ def gen_rsakeys(contents):
             with open('./temp/collout2_1','rb') as f:
                 contentsc=f.read()
 
-            print ('\n\nend block :\n---------------------\n\ngenerating:')
+            print '\n\nend block :\n---------------------\n\n'
             b1_1=contentsb[256:384]
             b2_1=contentsc[256:384]
             b1=int(binascii.hexlify(b1_1),16)
             b2=int(binascii.hexlify(b2_1),16)
             found=0
             i=0
-            
+            sys.stdout.write("generating :")
             while True:
                 p1=random_prime_coprime(512,65537)
                 p2=random_prime_coprime(512,65537)
@@ -257,9 +254,9 @@ def gen_rsakeys(contents):
         
 
 
-def verify_certificates():
-    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate1.pem')
-    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/certificate2.pem')
+def verify_certificates(outname):
+    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}1.pem'.format(outname))
+    os.system('openssl verify -CAfile ./gen_certs/CA.pem ./gen_certs/{}2.pem'.format(outname))
 
 def clean_temp():
     os.system('rm temp/*')
@@ -271,7 +268,8 @@ def main():
     parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
     parser.add_argument('-c', help='clean temporary files after execution', action='store_true')
-    parser.add_argument('--ca-key', metavar='in-ca-file', help='CA key pair', type=argparse.FileType('rb'))
+    parser.add_argument('--CAkey', metavar='in-CA-key', help='CA key pair')
+    parser.add_argument('-o', metavar='output name', help='output name use when generating new certificates (will generate {new_name}1.cer and {new_name}2.cer')
     try:
         results = parser.parse_args()
     except IOError, msg:
@@ -293,15 +291,16 @@ def main():
     print 'you will now generate rsa moduli for the certificates'
     base_contents1,base_contents2=gen_rsakeys(base_contents)
 
-    print 'you will now generate the signature parts of the certificates'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.ca-key.read())
+    print '\n\nyou will now generate the signature parts of the certificates'
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey)
 
-    genfile(base_contents1,base_contents2)
+    genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
-    if results.v is not None:
-        verify_certificates()
 
-    if results.c is not None:
+    if results.v is True:
+        verify_certificates(results.o)
+    if results.c is True:
         clean_temp()    
-    
+
+
 main()                                
