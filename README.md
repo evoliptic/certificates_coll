@@ -102,7 +102,6 @@ Unfortunately, some tests show that it would require around 20 days to generate 
 
 TODO list:
 ----------
-- check for validated time certifs
 - numbers for modify param
 - review for final
 
