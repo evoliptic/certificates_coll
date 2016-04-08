@@ -3,3 +3,4 @@ temp/*
 CA_cert/*
 gen_certs/*
 fastcoll/build/*
+CA2.key

@@ -57,6 +57,11 @@ def modify_contents(file_contents, start, end, name):
 
     return file_contents
 
+def sub_modify_contents(file_contents, data,start,end):
+    file_contents=file_contents[0:start]+data+file_contents[end:]
+    return file_contents
+
+
 
 
 """
@@ -64,12 +69,15 @@ menu to modify the several parameters of the start template of our server certif
 input :
        file_contents the starting template to modify
        mybool boolean to see if demo mode is activated or not (if activated the user won't have any interaction here)
+       ca_contents the template of CA certificate
+       mybool2 check if generation of CA certificate is selected
 
 output :
-        the modified template
+        the modified templates
 """
-def modify_parameters_menu(file_contents, mybool):
+def modify_parameters_menu(file_contents, mybool, ca_contents, mybool2):
     menu = {}
+    print 'modifying client template'
     print('[within options 1,2,3 and 4 of menu, we ask that total length of new value for the chosen parameter is equal to the length of the previous one (in order to not break whole structure). within option 5, you must provide a whole new asn1 starting part of the certificate(260 bytes length). If you don\'t want to modify any parameter, enter option 6]\n')
     menu['1']="modify common name"
     menu['2']="modify country"
@@ -108,7 +116,45 @@ def modify_parameters_menu(file_contents, mybool):
             print "Unknown Option Selected!"
         print '\n--------\nnew option:'
     print '\nGenerating new cer template... [OK]\n\n'
-    return file_contents
+
+    menu = {}
+    print 'modifying CA template'
+    print('[within options 1,2 and 3 of menu, we ask that total length of new value for the chosen parameter is equal to the length of the previous one (in order to not break whole structure). If you don\'t want to modify any parameter, enter option 4]\n')
+    menu['1']="modify common name"
+    menu['2']="modify country"
+    menu['3']="modify location"
+    menu['4']="Exit parameters modifications"
+
+    while True:
+        if mybool is True:
+            break
+        options=menu.keys()
+        options.sort()
+        for entry in options:
+            print entry, menu[entry]
+        selection=raw_input("Please Select:")
+        print('\n')
+        if selection =='1':
+            print "you selected option1"
+            ca_contents=modify_contents(ca_contents,xx,xx,'common name')
+            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+        elif selection == '2':
+            print "you selected option2"
+            ca_contents=modify_contents(ca_contents,xx,xx,'country')
+            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+        elif selection == '3':
+            print "you selected option3"
+            ca_contents=modify_contents(ca_contents,xx,xx,'location')
+            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+        elif selection == '4':
+            break
+        else:
+            print "Unknown Option Selected!"
+        print '\n--------\nnew option:'
+    print '\nGenerating new CA cer template... [OK]\n\n'
+
+
+    return file_contents, ca_contents
 
 
 """
@@ -160,14 +206,14 @@ def gen_CA_sign(contents,data):
 this functions makes the necessary to generate a CA certificate
 input :
        data pwd to CA key pair
-
+       data2 pwd to CA cer template
 output : 
         a CA certificate with the name 'CA' is created in the directory gen_certs/
 """
-def gen_CA_files(data):
+def gen_CA_files(data,data2):
     subprocess.call('openssl rsa -in {} -outform DER -pubout -out ./temp/temp_CAkey.cer >/dev/null 2>&1'.format(data),stdout=None,shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
-        with open('./base_certs/CA_template.cer','rb') as f3:
+        with open('{}'.format(data2),'rb') as f3:
             contents3=f3.read()
             contents1=f1.read()
             contents2=contents3[:225]+contents1[33:289]+contents3[481:]
@@ -189,11 +235,11 @@ input :
        data pwd to CA key pair
        mybool check if CA key pair was already entered on command line
        mybool2 boolean to see if we should generate CA certificate or not
-
+       data2 pwd to CA template
 output :
         the modified buffers representing our colliding certificates (that should be complete now)
 """
-def gen_sign(contents1,contents2,data,mybool,mybool2):    
+def gen_sign(contents1,contents2,data,data2, mybool,mybool2):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
@@ -209,7 +255,7 @@ def gen_sign(contents1,contents2,data,mybool,mybool2):
         data='./CA_cert/CA.key'
                 
     if mybool2 is True:
-        gen_CA_files(data)
+        gen_CA_files(data,data2)
     
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data),shell=True)
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data),shell=True)
@@ -429,7 +475,8 @@ main function: options parser and calling all others
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', metavar='in-file', help='base cer template file to use', type=argparse.FileType('rb'))
+    parser.add_argument('--inCer', metavar='in-cer-file', help='base cer template file to use', type=argparse.FileType('rb'))
+    parser.add_argument('--inCACer', metavar='in-CAcer-file', help='base CA cer template file to use', type=argparse.FileType('rb'))
     parser.add_argument('-v', help='validate certificates', action='store_true')
     parser.add_argument('-d', help='demo mode', action='store_true')
     parser.add_argument('-g', help='generate CA certificate', action='store_true')
@@ -446,24 +493,33 @@ def main():
     if not os.path.exists('gen_certs'):
         os.makedirs('gen_certs')    
 
-    if results.i is not None :
-        base_contents=results.i.read()
+    if results.inCer is not None :
+        base_contents=results.inCer.read()
     else:
         with open('./base_certs/start_template.cer','rb') as infile1:
             base_contents=infile1.read()
+
+    if results.inCACer is not None :
+        base_CA_contents=results.inCer.read()
+    else:
+        with open('./base_certs/CA_template.cer','rb') as infile1:
+            base_CA_contents=infile1.read()
+
 
     print 'Welcome to certificates collider basics generator\n-------------------------------------------------\n'
     print 'this program will help you build collinding x509 certificates based on MD5 signature. To do so, it will generate 2 certificates equal apart from a colliding rsa public key.\n'
     print 'if you used an input file on command line, you have already the start of a cer file (asn1 cimpliant) to work on. If not, you have been given an arbitrary starting cer file.\n'
 
     print 'first you will changes the parameters of the client in the certificates to be generated :\n----------------------------------------------------------------------------------------'
-    base_contents = modify_parameters_menu(base_contents,results.d)
+
+
+    base_contents,base_CA_contents = modify_parameters_menu(base_contents,results.d,base_CA_contents,results.g)
 
     print 'you will now generate rsa moduli for the certificates\n'
     base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
     print '\n\ngenerating the signature parts of the certificates.....[OK]\n'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.d,results.g)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.inCACer,results.d,results.g)
 
     genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
