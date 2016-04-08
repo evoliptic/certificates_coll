@@ -1,5 +1,5 @@
 # certificates_coll
-some progs for a practical little demonstration about colliding md5 signed based certificates, based on research "Colliding X.509 Certificates" made by wang, lestra and de berger.
+some progs for a practical little demonstration about colliding md5 signed based certificates, based on research "Colliding X.509 Certificates" made by wang, lestra and de Werger.
 
 installation
 ------------
@@ -7,7 +7,7 @@ following instructions are for Linux users on a debian based distro. Please adju
 
   dependencies:
   -------------
-	-fascoll program : boost libraries, cmake > 2.6
+	-fascoll program : boost libraries, cmake > 2.6 (credits go to Marc Stevens)
 	-openssl  (should work with version > 0.9)
 	-main program : python > 2.6 (should be installed by default), some non default installed python modules: gmpy2
 
@@ -19,7 +19,7 @@ following instructions are for Linux users on a debian based distro. Please adju
 	if boost libraries are not installed:
 	$ apt-get install libboost-all-dev
 
-	if openssl isn ot installed
+	if openssl is not installed
 	$ apt-get install openssl
 
 	if gmpy is not installed
@@ -43,10 +43,11 @@ utilization
   options :
 	optionnal:
 	  -h show help
-	  -i based cer template infile (more explanations following)
+	  --inCer starting cer template infile (more explanations following)
+	  --inCACer input template for CA certificate
 	  -v check resulting colliding certificates against root one
 	  --CAkey generated key pair for CA without cbc protection and 2048 bits length(obtained from 'openssl genrsa -out CA.key 2048')
-	  -o output name to use (will generate {new_name}1.cer and {new_name}2.cer in gen_certs/
+	  -o output name to use for generated certificates (will generate {new_name}1.cer and {new_name}2.cer in gen_certs/
 	  -c clean temporary files used
 	  -d demo mode, avoiding user input just to show and see time to generation
 
@@ -55,12 +56,12 @@ utilization
 explanations about how the program works
 ----------------------------------------
 the program works generally as the following :
-it generates two certificates colliding under md5 in the rsa public key part, as all fields except rsa key are same, and at the end same md5 of the 'to be signed ' part is found. In this sense, signature part is the same at the end of both. The method is taken from the research paper made from scientits cited upper : Wang, de Werger and Lestra (paper : https://www.win.tue.nl/~bdeweger/CollidingCertificates/). The collisions finder subprogram used is the program fastcoll, made by Marc Stevens (http://www.win.tue.nl/hashclash/).
+it generates two certificates colliding under md5 in the rsa public key part, as all fields except rsa key are same. At the end same md5 of the 'to be signed ' part is found and in this sense, signature part is the same at the end of both. The method is taken from the research paper made from scientits cited upper : Wang, de Werger and Lestra (paper : https://www.win.tue.nl/~bdeweger/CollidingCertificates/). The MD5 collisions finder subprogram used is the program fastcoll, made by Marc Stevens (http://www.win.tue.nl/hashclash/).
 
 
 |-----------|      |----------|    |----------|
 | start     | ===> |     1    |    |     1    |
-| fields    |      |----------|  + |----------|            we have here md5(2)=md5(3)
+| fields    |      |----------|  + |----------|            we have here rsa key1 =/= rsa key 2 but md5(2)=md5(3)
 |-----------|      |rsa key 1 |    |rsa key 2 |
                    |----------|    |----------|
      1                  2               3
@@ -69,7 +70,7 @@ step 1:
 it takes in entry a pwd towards a CA key pair and a starting template of a certificate in cer format.
 This CA key pair must be of 2048 bit length key __cf__and must not be protected using cbc mode__. It can be generated using the following command '$openssl genrsa 2048'.
 the starting template consists in the first 260 bytes of a certificate in cer format, thus verifying asn1 structures.
-If the starting template is provided and demo mode is activated, then the user will jump to step 2. Elsewise, the program will use a default starting template or the template entered and asks the user to to midfy it by entering its own fields in the attributes 'common name','country', 'location' and 'comment', that must be the same length than the ones already in the template (in order to not mess up with the asn1 structure and md5 calculation(the user can generate its own structure and provide it still)(note: the user may leave his structure untouched).
+If demo mode is activated, then the user will jump to step 2. Elsewise, the program will use a default starting template or the template entered and asks the user to modify it by entering its own fields in the attributes 'common name','country', 'location' and 'comment'. For this part, we ask the user to have the same global structure than the template 'base_certs/start_template.cer', thus having fields at the same position and that must be the same length than the ones already in the template (in order to not mess up with the asn1 structure and md5 calculation(the user can generate its own structure and provide it still)(note: the user may leave his structure untouched) (user can find the reason behind that in "not implemented" paragraph.
 After all fields are entered, we go to step 2.
 
 step 2:
@@ -85,12 +86,12 @@ ending: the 'to be signed part' can be passed through md5 and sha1 to show prope
 
 performances:
 -------------
-depending a lot on hardware, takes around 30-90seconds when generating random collision, can takes up to 40minutes when searching for fully crafted rsa keys.
+depending a lot on hardware and is hazardous (as our method is based on randomness), takes around 30-90seconds when generating random collision, can takes up to 40minutes when searching for fully mathematically crafted rsa keys.
 
 
 not implemented:
 ----------------
-automating numbers for templates
+one of feature of the program would be to let the user modify the differents fields of any entered starting template at the beginning. However, as those starting templates should verify their length can be divided by , we could assume that the user has already crafted compliant template. More, due to optionnal and redondants possible fields in the templates, as well as untrusted user input, we can't make sure the template entered won't screw up completly the program. Due to this, only the modification of relevant fields in the default starting template is implemented.
 
 
 Future :
@@ -102,6 +103,5 @@ Unfortunately, some tests show that it would require around 20 days to generate 
 
 TODO list:
 ----------
-- numbers for modify param
 - review for final
 
