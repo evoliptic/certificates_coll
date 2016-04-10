@@ -59,14 +59,6 @@ the program works generally as the following :
 it generates two certificates colliding under md5 in the rsa public key part, as all fields except rsa key are same. At the end same md5 of the 'to be signed ' part is found and in this sense, signature part is the same at the end of both. The method is taken from the research paper made from scientits cited upper : Wang, de Werger and Lestra (paper : https://www.win.tue.nl/~bdeweger/CollidingCertificates/). The MD5 collisions finder subprogram used is the program fastcoll, made by Marc Stevens (http://www.win.tue.nl/hashclash/).
 
 
-|-----------|      |----------|    |----------|
-| start     | ===> |     1    |    |     1    |
-| fields    |      |----------|  + |----------|            we have here rsa key1 =/= rsa key 2 but md5(2)=md5(3)
-|-----------|      |rsa key 1 |    |rsa key 2 |
-                   |----------|    |----------|
-     1                  2               3
-
-
 step 0:
 the program takes three files as input to generate the certificates : 
  - a CA key pair of 2048 bit length key (it can be protected using cbc mode). It can be generated using the following command '$openssl genrsa 2048'. this key pair will be used to generate the signature part of the colliding certificates
@@ -100,7 +92,7 @@ depending a lot on hardware and is hazardous (as our method is based on randomne
 
 not implemented:
 ----------------
-one of feature of the program would be to let the user modify the differents fields of any entered starting template at the beginning. However, as those starting templates should verify their bits length can be divided by 128, we could assume that the user has already crafted compliant template. More, due to optionnal and redondants possible fields in the templates, as well as untrusted user input, we can't make sure the template entered won't screw up completly the program. Due to this, only the modification of relevant fields in the default starting template is implemented.
+one of feature of the program would be to let the user modify the differents fields of any entered starting template at the beginning. However, as those starting templates should verify their bits length can be divided by 128, we could assume that the user has already crafted compliant template. More, due to optionnal and redondants possible fields in the templates, as well as untrusted user input, and the fact that certificates are somewhat attached to the CA one, we can't make sure the template entered won't screw up completly the program. Due to this, only the modification of relevant fields in the default starting templates (both for CA and cerficate) is implemented.
 
 
 Future :
@@ -108,9 +100,4 @@ Future :
 One of the wish of the people who made that program was to generate real different usable certificates that still collide using hashclash (fastcoll program made to be used with cuda by Marc Stevens also) based on this infos: https://www.win.tue.nl/hashclash/rogue-ca/
 Unfortunately, some tests show that it would require around 20 days to generate those certificates on our machine, and getting parralelizing hardware to do the job (as well as maybe rewrite all parallelizing parts of hashclash) was out of scope for this school project.
 
-
-
-TODO list:
-----------
-- review for final
 
