@@ -66,11 +66,18 @@ def modify_contents(file_contents, start, end, name):
 
     return file_contents
 
-def sub_modify_contents(file_contents, data,start,end):
-    file_contents=file_contents[0:start]+data+file_contents[end:]
-    return file_contents
+def modify_ca_contents(ca_contents,file_contents, start, end,start2,end2,name):
+    base_len=end-start
+    print ('----------\nyou chose to modify {},with actual value"{}" you must enter a length of {}\n new string:'.format(name,ca_contents[start:end],base_len))
 
-
+    data = stdin.readline()
+    data=data.strip()
+    if len(data) != base_len :
+        print 'wrong length entered, quitting modification'
+    else :
+        ca_contents=ca_contents[0:start2]+data+ca_contents[end2:start]+data+ca_contents[end:]
+        file_contents=file_contents[0:start2]+data+file_contents[end2:]
+    return ca_contents, file_contents
 
 
 """
@@ -135,7 +142,7 @@ def modify_parameters_menu(file_contents, mybool, ca_contents, mybool2):
     menu['4']="Exit parameters modifications"
 
     while True:
-        if mybool is True:
+        if mybool2 is False or mybool is True:
             break
         options=menu.keys()
         options.sort()
@@ -145,16 +152,13 @@ def modify_parameters_menu(file_contents, mybool, ca_contents, mybool2):
         print('\n')
         if selection =='1':
             print "you selected option1"
-            ca_contents=modify_contents(ca_contents,xx,xx,'common name')
-            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+            ca_contents,file_contents=modify_ca_contents(ca_contents,file_contents,142,159,47,64,'common name')
         elif selection == '2':
             print "you selected option2"
-            ca_contents=modify_contents(ca_contents,xx,xx,'country')
-            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+            ca_contents,file_contents=modify_ca_contents(ca_contents,file_contents,190,192,95,97,'country')
         elif selection == '3':
             print "you selected option3"
-            ca_contents=modify_contents(ca_contents,xx,xx,'location')
-            file_contents=sub_modify_contents(file_contents,xx,xx,'all')
+            ca_contents,file_contents=modify_ca_contents(ca_contents,file_contents,170,179,75,84,'location')
         elif selection == '4':
             break
         else:
@@ -219,16 +223,16 @@ input :
 output : 
         a CA certificate with the name 'CA' is created in the directory gen_certs/
 """
-def gen_CA_files(data,data2):
+def gen_CA_files(data,ca_contents):
     subprocess.call('openssl rsa -in {} -outform DER -pubout -out ./temp/temp_CAkey.cer >/dev/null 2>&1'.format(data),stdout=None,shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
         contents1=f1.read()
-        
-    contents2=data2[:225]+contents1[33:289]+data2[481:]
-    contents2=gen_CA_sign(contents2,data)            
+
+    ca_contents=ca_contents[:225]+contents1[33:289]+ca_contents[481:]
+    ca_contents=gen_CA_sign(ca_contents,data)            
 
     with open('./gen_certs/CA.cer','wb') as f2:
-        f2.write(contents2)
+        f2.write(ca_contents)
     subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
     print 'Generating CA certificates.....[OK]\n\n'
 
@@ -247,7 +251,7 @@ input :
 output :
         the modified buffers representing our colliding certificates (that should be complete now)
 """
-def gen_sign(contents1,contents2,data,data2, mybool,mybool2):    
+def gen_sign(contents1,contents2,ca_contents,data, mybool,mybool2):    
     with open('./temp/tbs1','wb') as temp1:
         temp1.write(contents1[4:549])
     with open('./temp/tbs2','wb') as temp2:
@@ -263,7 +267,7 @@ def gen_sign(contents1,contents2,data,data2, mybool,mybool2):
         data='./CA_cert/CA.key'
                 
     if mybool2 is True:
-        gen_CA_files(data,data2)
+        gen_CA_files(data,ca_contents)
     
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig1< ./temp/tbs1'.format(data),shell=True)
     subprocess.call('openssl dgst -md5 -sign {} -out ./temp/sig2< ./temp/tbs2'.format(data),shell=True)
@@ -508,7 +512,7 @@ def main():
             base_contents=infile1.read()
 
     if results.inCACer is not None :
-        base_CA_contents=results.inCer.read()
+        base_CA_contents=results.inCACer.read()
     else:
         with open('./base_certs/CA_template.cer','rb') as infile1:
             base_CA_contents=infile1.read()
@@ -527,7 +531,7 @@ def main():
     base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
     print '\n\ngenerating the signature parts of the certificates.....[OK]\n'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,base_CA_contents,results.d,results.g)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,base_CA_contents,results.CAkey,results.d,results.g)
 
     genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
