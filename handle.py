@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+"""
+ software made by Zilio,Cauchon
+ distributed under GnuPl v3 license
+ certificates_coll copyright 2016 
+"""
+
+
+
+
 import binascii
 import sys
 from sys import stdin
@@ -213,12 +222,11 @@ output :
 def gen_CA_files(data,data2):
     subprocess.call('openssl rsa -in {} -outform DER -pubout -out ./temp/temp_CAkey.cer >/dev/null 2>&1'.format(data),stdout=None,shell=True)
     with open('./temp/temp_CAkey.cer','rb') as f1:
-        with open('{}'.format(data2),'rb') as f3:
-            contents3=f3.read()
-            contents1=f1.read()
-            contents2=contents3[:225]+contents1[33:289]+contents3[481:]
-
+        contents1=f1.read()
+        
+    contents2=data2[:225]+contents1[33:289]+data2[481:]
     contents2=gen_CA_sign(contents2,data)            
+
     with open('./gen_certs/CA.cer','wb') as f2:
         f2.write(contents2)
     subprocess.call('openssl x509 -in ./gen_certs/CA.cer -inform DER -out ./gen_certs/CA.pem',shell=True)
@@ -418,7 +426,7 @@ def gen_rsakeys(contents,mybool):
                        found = 1
                        endtime=time.time()
                        tottime=endtime-starttime
-                       verify_rsa(p1,q1,p2,q2,b1*2**1024+b,b2*2**1024+b)
+                       gen_rsa_mathematics(p1,q1,p2,q2,b1*2**1024+b,b2*2**1024+b)
                        print ('\nfound! running time: {}m {}s'.format(int(round(tottime)/60),round(tottime)%60))
                        sys.stdout.flush()
                        break
@@ -506,7 +514,7 @@ def main():
             base_CA_contents=infile1.read()
 
 
-    print 'Welcome to certificates collider basics generator\n-------------------------------------------------\n'
+    print 'Welcome to certificates collider basics generator\nmade by Zilio,Cauchon  distributed under GnuPlv3\n-------------------------------------------------\n'
     print 'this program will help you build collinding x509 certificates based on MD5 signature. To do so, it will generate 2 certificates equal apart from a colliding rsa public key.\n'
     print 'if you used an input file on command line, you have already the start of a cer file (asn1 cimpliant) to work on. If not, you have been given an arbitrary starting cer file.\n'
 
@@ -519,7 +527,7 @@ def main():
     base_contents1,base_contents2=gen_rsakeys(base_contents,results.d)
 
     print '\n\ngenerating the signature parts of the certificates.....[OK]\n'
-    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,results.inCACer,results.d,results.g)
+    base_contents1,base_contents2=gen_sign(base_contents1,base_contents2,results.CAkey,base_CA_contents,results.d,results.g)
 
     genfile(base_contents1,base_contents2,results.o)
     verify_md5_sign(base_contents1,base_contents2)
